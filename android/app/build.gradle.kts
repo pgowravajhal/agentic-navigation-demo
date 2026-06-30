@@ -13,15 +13,6 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
-
-        // HERE SDK credentials from local.properties (not committed to git)
-        val localProps = rootProject.file("local.properties")
-        val props = java.util.Properties()
-        if (localProps.exists()) {
-            props.load(localProps.inputStream())
-        }
-        manifestPlaceholders["HERE_ACCESS_KEY_ID"] = props.getProperty("HERE_ACCESS_KEY_ID", "")
-        manifestPlaceholders["HERE_ACCESS_KEY_SECRET"] = props.getProperty("HERE_ACCESS_KEY_SECRET", "")
     }
 
     buildTypes {
@@ -32,7 +23,6 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true
     }
 
     composeOptions {
@@ -76,10 +66,4 @@ dependencies {
 
     // DataStore for settings persistence
     implementation("androidx.datastore:datastore-preferences:1.0.0")
-
-    // HERE SDK for Android (Lite Edition — map rendering)
-    implementation("com.here.sdk:here-sdk-lite:4.17.4.0")
-
-    // Compose interop for AndroidView (used to embed HERE MapView)
-    implementation("androidx.compose.ui:ui-viewbinding")
 }

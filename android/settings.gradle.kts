@@ -10,10 +10,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // HERE SDK repository
-        maven {
-            url = uri("https://repo.here.com/artifactory/artifact-cache")
-        }
     }
 }
 

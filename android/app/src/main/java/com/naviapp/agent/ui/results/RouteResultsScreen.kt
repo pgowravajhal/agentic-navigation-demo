@@ -13,8 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.naviapp.agent.data.*
 import com.naviapp.agent.ui.ResultCache
-import com.naviapp.agent.ui.map.HereMapComposable
-import com.naviapp.agent.ui.map.MapRouteData
+import com.naviapp.agent.ui.map.MockMapCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,157 +60,92 @@ private fun ResultContent(response: RouteResponseDto, modifier: Modifier = Modif
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // HERE Map — at the top of the results
-        val mapData = buildMapData(response)
-        if (mapData != null) {
-            HereMapComposable(
-                routeData = mapData,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(250.dp)
-            )
+        // Mock Map Card at top
+        val route = response.recommendedRoute
+        val origin = extractCity(route.label, isOrigin = true)
+        val destination = extractCity(route.label, isOrigin = false)
+        MockMapCard(
+            origin = origin,
+            destination = destination,
+            distanceKm = route.summary.distanceKm,
+            durationMinutes = route.summary.durationMinutes,
+            eta = route.summary.eta
+        )
+
+        // Recommended Route Card
+        RecommendedCard(response.recommendedRoute)
+
+        // Traffic & Weather Row
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SummaryChip("\uD83D\uDEA6 ${response.trafficSummary.level.uppercase()}", Modifier.weight(1f))
+            SummaryChip("\u2601\uFE0F ${response.weatherSummary.conditions.take(20)}", Modifier.weight(1f))
         }
 
-        // Content cards below the map
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Recommended Route Card
-            RecommendedCard(response.recommendedRoute)
-
-            // Traffic & Weather Row
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SummaryChip("\uD83D\uDEA6 ${response.trafficSummary.level.uppercase()}", Modifier.weight(1f))
-                SummaryChip("\u2601\uFE0F ${response.weatherSummary.conditions.take(20)}", Modifier.weight(1f))
-            }
-
-            // Weather alerts
-            if (response.weatherSummary.alerts.isNotEmpty()) {
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)), modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("\u26A0\uFE0F Weather Alerts", fontWeight = FontWeight.Bold)
-                        response.weatherSummary.alerts.forEach { alert ->
-                            Text("\u2022 $alert", style = MaterialTheme.typography.bodySmall)
-                        }
+        // Weather alerts
+        if (response.weatherSummary.alerts.isNotEmpty()) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("\u26A0\uFE0F Weather Alerts", fontWeight = FontWeight.Bold)
+                    response.weatherSummary.alerts.forEach { alert ->
+                        Text("\u2022 $alert", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
-
-            // POIs
-            if (response.pois.isNotEmpty()) {
-                Text("Points of Interest", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                response.pois.take(3).forEach { poi ->
-                    val icon = when (poi.category) {
-                        "fuel-station" -> "\u26FD"
-                        "rest-area" -> "\uD83C\uDFD5\uFE0F"
-                        "ev-charging" -> "\uD83D\uDD0C"
-                        "restaurant" -> "\uD83C\uDF54"
-                        else -> "\uD83D\uDCCD"
-                    }
-                    Text("$icon ${poi.name} (${poi.distanceFromRouteKm} km from route)", style = MaterialTheme.typography.bodySmall)
-                }
-            }
-
-            // Explanation
-            ExplanationCard(response.explanation)
-
-            // Alternatives
-            if (response.alternatives.isNotEmpty()) {
-                Text("Alternatives", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                response.alternatives.forEach { alt ->
-                    AlternativeCard(alt)
-                }
-            }
-
-            // Metadata footer
-            Text(
-                "Processed in ${response.metadata.processingTimeMs}ms | Mode: ${response.metadata.mode} | ${response.metadata.agentsConsulted.size} agents",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
-    }
-}
 
-/**
- * Builds map data from the route response.
- * Uses origin/destination from the request and POI locations as hints.
- * Returns null if coordinates are not available.
- */
-private fun buildMapData(response: RouteResponseDto): MapRouteData? {
-    // Extract origin/destination from POIs or use label-based lookup
-    // The backend response doesn't directly include origin/dest coords in the top-level,
-    // but we can infer from the request that was cached.
-    // For now, use a city lookup from the route label.
-    val originCoords = extractCoordsFromLabel(response.recommendedRoute.label, isOrigin = true)
-    val destCoords = extractCoordsFromLabel(response.recommendedRoute.label, isOrigin = false)
+        // POIs
+        if (response.pois.isNotEmpty()) {
+            Text("Points of Interest", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            response.pois.take(3).forEach { poi ->
+                val icon = when (poi.category) {
+                    "fuel-station" -> "\u26FD"
+                    "rest-area" -> "\uD83C\uDFD5\uFE0F"
+                    "ev-charging" -> "\uD83D\uDD0C"
+                    "restaurant" -> "\uD83C\uDF54"
+                    else -> "\uD83D\uDCCD"
+                }
+                Text("$icon ${poi.name} (${poi.distanceFromRouteKm} km from route)", style = MaterialTheme.typography.bodySmall)
+            }
+        }
 
-    if (originCoords == null || destCoords == null) return null
+        // Explanation
+        ExplanationCard(response.explanation)
 
-    // Build polyline from POI locations as waypoints (simplified visualization)
-    val polylinePoints = mutableListOf<Pair<Double, Double>>()
-    polylinePoints.add(originCoords)
-    response.pois.forEach { poi ->
-        polylinePoints.add(poi.location.latitude to poi.location.longitude)
-    }
-    polylinePoints.add(destCoords)
+        // Alternatives
+        if (response.alternatives.isNotEmpty()) {
+            Text("Alternatives", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            response.alternatives.forEach { alt ->
+                AlternativeCard(alt)
+            }
+        }
 
-    return MapRouteData(
-        originLat = originCoords.first,
-        originLng = originCoords.second,
-        originLabel = extractCity(response.recommendedRoute.label, isOrigin = true),
-        destLat = destCoords.first,
-        destLng = destCoords.second,
-        destLabel = extractCity(response.recommendedRoute.label, isOrigin = false),
-        polylinePoints = if (polylinePoints.size >= 2) polylinePoints else null
-    )
-}
-
-// Known city coordinates for map display
-private val CITY_COORDS = mapOf(
-    "berlin" to (52.5200 to 13.4050),
-    "paris" to (48.8566 to 2.3522),
-    "munich" to (48.1351 to 11.5820),
-    "hamburg" to (53.5511 to 9.9937),
-    "zurich" to (47.3769 to 8.5417),
-    "stuttgart" to (48.7758 to 9.1829),
-    "frankfurt" to (50.1109 to 8.6821),
-    "cologne" to (50.9375 to 6.9603),
-)
-
-private fun extractCoordsFromLabel(label: String, isOrigin: Boolean): Pair<Double, Double>? {
-    val lower = label.lowercase()
-    // Route labels like "Via A2 / A4 (Berlin → Paris)"
-    val parts = lower.split("→", "->", " to ")
-    if (parts.size >= 2) {
-        val city = if (isOrigin) parts[0] else parts[1]
-        return CITY_COORDS.entries.firstOrNull { city.contains(it.key) }?.value
-    }
-    // Fallback: check whole label for city names
-    return if (isOrigin) {
-        CITY_COORDS.entries.firstOrNull { lower.contains(it.key) }?.value
-    } else {
-        // Return the second city found
-        val found = CITY_COORDS.entries.filter { lower.contains(it.key) }
-        found.getOrNull(1)?.value ?: found.firstOrNull()?.value
+        // Metadata footer
+        Text(
+            "Processed in ${response.metadata.processingTimeMs}ms | Mode: ${response.metadata.mode} | ${response.metadata.agentsConsulted.size} agents",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 private fun extractCity(label: String, isOrigin: Boolean): String {
-    val parts = label.split("→", "->", " to ")
+    val cities = listOf("Berlin", "Paris", "Munich", "Hamburg", "Zurich", "Stuttgart", "Frankfurt")
+    val lower = label.lowercase()
+    val parts = lower.split("\u2192", "->", " to ")
     if (parts.size >= 2) {
         val segment = if (isOrigin) parts[0] else parts[1]
-        // Find city name in the segment
-        CITY_COORDS.keys.forEach { city ->
-            if (segment.lowercase().contains(city)) {
-                return city.replaceFirstChar { it.uppercase() }
-            }
+        cities.forEach { city ->
+            if (segment.contains(city.lowercase())) return city
         }
     }
-    return if (isOrigin) "Origin" else "Destination"
+    // Fallback: find in full label
+    val found = cities.filter { lower.contains(it.lowercase()) }
+    return if (isOrigin) found.firstOrNull() ?: "Origin"
+    else found.getOrNull(1) ?: found.firstOrNull() ?: "Destination"
 }
 
 @Composable
@@ -240,7 +174,7 @@ private fun RecommendedCard(route: RouteInfoDto) {
             Text("Confidence: ${(route.scores.overall * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "Scores — Route: ${(route.scores.routing * 100).toInt()}% | Traffic: ${(route.scores.traffic * 100).toInt()}% | Weather: ${(route.scores.weather * 100).toInt()}% | POI: ${(route.scores.poi * 100).toInt()}%",
+                "Scores \u2014 Route: ${(route.scores.routing * 100).toInt()}% | Traffic: ${(route.scores.traffic * 100).toInt()}% | Weather: ${(route.scores.weather * 100).toInt()}% | POI: ${(route.scores.poi * 100).toInt()}%",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
