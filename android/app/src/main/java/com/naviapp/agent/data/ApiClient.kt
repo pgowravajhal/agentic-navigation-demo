@@ -12,8 +12,8 @@ import java.util.concurrent.TimeUnit
  */
 object ApiClient {
 
-    // Default: Android emulator localhost mapping
-    private var baseUrl: String = "http://10.0.2.2:8000/"
+    // Default: EC2 backend
+    private var baseUrl: String = "http://3.87.198.126:8000/"
     private var api: NaviApiService? = null
 
     private val okHttpClient: OkHttpClient by lazy {

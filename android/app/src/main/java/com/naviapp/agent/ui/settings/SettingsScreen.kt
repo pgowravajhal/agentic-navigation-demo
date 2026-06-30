@@ -71,6 +71,10 @@ fun SettingsScreen(
             Text("Quick presets:", style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(
+                    onClick = { backendUrl = "http://3.87.198.126:8000"; saved = false },
+                    label = { Text("EC2") }
+                )
+                AssistChip(
                     onClick = { backendUrl = "http://10.0.2.2:8000"; saved = false },
                     label = { Text("Emulator") }
                 )
